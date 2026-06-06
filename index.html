@@ -121,6 +121,7 @@
             width: 100%; max-width: 1050px; display: flex; flex-direction: column; flex: 1; 
             align-items: center; justify-content: flex-start; padding-bottom: 5vh; transition: width var(--transition-speed);
         }
+        .typing-wrapper.v-center { justify-content: center; padding-bottom: 0; }
         
         #progressIndicator, #timerDisplay { width: 100%; text-align: left; font-size: 24px; color: var(--text-color); margin-bottom: 5px; line-height: 1; }
         #timerDisplay { display: none; }
@@ -134,6 +135,7 @@
 
         .correct-text { color: var(--correct); }
         .error-char { color: var(--error); border-bottom: 3px solid var(--error); background: rgba(202, 71, 84, 0.15); }
+        .sfb { text-decoration: underline; text-decoration-color: currentColor; text-decoration-thickness: 2px; text-underline-offset: 4px; }
         
          #caret {
            position: absolute; width: 3px; height: 1.1em; background-color: var(--text-color);
@@ -343,6 +345,36 @@
             </div>
             <div class="mt-setting-row">
                 <div class="mt-setting-label">
+                    <span class="mt-setting-title">Compact Layout</span>
+                    <span class="mt-setting-desc">Show core block only (no outer rows or columns)</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-compactRows-off" onclick="setPref('compactRows', false)">off</button>
+                    <button class="mt-toggle-btn" id="tgl-compactRows-on" onclick="setPref('compactRows', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Finger Colors</span>
+                    <span class="mt-setting-desc">Color keys and letters by finger column</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-fingerColors-off" onclick="setPref('fingerColors', false)">off</button>
+                    <button class="mt-toggle-btn" id="tgl-fingerColors-on" onclick="setPref('fingerColors', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Center Vertically</span>
+                    <span class="mt-setting-desc">Vertically center the typing area and keyboard</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-vCenter-off" onclick="setPref('vCenter', false)">off</button>
+                    <button class="mt-toggle-btn" id="tgl-vCenter-on" onclick="setPref('vCenter', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
                     <span class="mt-setting-title">Show Next Key Hint</span>
                     <span class="mt-setting-desc">Outline the expected key</span>
                 </div>
@@ -369,6 +401,15 @@
                 <div class="mt-setting-action">
                     <button class="mt-toggle-btn active" id="tgl-sound-off" onclick="setPref('sound', false)">off</button>
                     <button class="mt-toggle-btn" id="tgl-sound-on" onclick="setPref('sound', true)">on</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
+                    <span class="mt-setting-title">Keypress Sound</span>
+                    <span class="mt-setting-desc">Synth (offline) or real Monkeytype switch samples</span>
+                </div>
+                <div class="mt-setting-action">
+                    <select id="soundProfileSelect" class="mt-select" style="background:var(--bg-color); padding: 6px 12px; border-radius:6px;"></select>
                 </div>
             </div>
             <div class="mt-setting-row">
@@ -502,8 +543,8 @@
        ========================================================================== */
     let config = {
         hw: 'go60', sourceKey: 'qwerty', tgt: 'default', wordCount: '25', timed: '0', mode: 'words',
-        showKb: true, homerow: false, keypress: true, hints: true,
-        mirror: false, sound: true, debug: false,
+        showKb: true, homerow: false, compactRows: false, fingerColors: false, keypress: true, hints: true,
+        mirror: false, sound: true, debug: false, vCenter: false, soundProfile: 'synth',
         sourceJsonMap: null, targetJsonMap: null, draggedMap: null
     };
 
@@ -521,7 +562,8 @@
         Object.assign(DOM, {
             overlay: document.getElementById('startOverlay'),
             mainHeader: document.getElementById('mainHeader'),
-            hwSelect: document.getElementById('hwSelect'), sourceSelect: document.getElementById('sourceSelect'), targetSelect: document.getElementById('targetSelect'), 
+            hwSelect: document.getElementById('hwSelect'), sourceSelect: document.getElementById('sourceSelect'), targetSelect: document.getElementById('targetSelect'),
+            soundProfileSelect: document.getElementById('soundProfileSelect'),
             wordCountSelect: document.getElementById('wordCountSelect'), timedSelect: document.getElementById('timedSelect'),
             jsonStatus: document.getElementById('jsonStatus'),
             newsBtn: document.getElementById('newsBtn'), wordsBtn: document.getElementById('wordsBtn'),
@@ -571,9 +613,14 @@
         DOM.targetSelect.value = config.tgt;
         DOM.wordCountSelect.value = config.wordCount;
         DOM.timedSelect.value = config.timed;
+        DOM.soundProfileSelect.value = config.soundProfile;
 
         syncToggleUI('showKb', config.showKb);
         syncToggleUI('homerow', config.homerow);
+        syncToggleUI('compactRows', config.compactRows);
+        syncToggleUI('fingerColors', config.fingerColors);
+        syncToggleUI('vCenter', config.vCenter);
+        DOM.typingWrapper.classList.toggle('v-center', config.vCenter);
         syncToggleUI('keypress', config.keypress);
         syncToggleUI('hints', config.hints);
         syncToggleUI('mirror', config.mirror);
@@ -591,12 +638,19 @@
         if (key === 'showKb') {
             DOM.keyboardContainer.style.display = config.showKb && !state.setupOpen ? 'flex' : 'none';
             if (config.showKb) initKeyboard();
-        } else if (['hw', 'tgt', 'sourceKey', 'mirror', 'homerow'].includes(key)) {
+        } else if (['hw', 'tgt', 'sourceKey', 'mirror', 'homerow', 'compactRows'].includes(key)) {
             if (config.showKb) initKeyboard();
         } else if (key === 'debug') {
             DOM.debugArea.style.display = (config.debug && !state.testCompleted && !state.setupOpen) ? 'block' : 'none';
         } else if (key === 'hints') {
             highlightExpected();
+        } else if (key === 'fingerColors') {
+            if (config.showKb) renderKeyboard();
+            updateTextUI();
+        } else if (key === 'vCenter') {
+            DOM.typingWrapper.classList.toggle('v-center', config.vCenter);
+        } else if (key === 'soundProfile') {
+            loadSoundProfile(val).then(() => playClickSound());   // load + preview the chosen profile
         }
     }
 
@@ -666,6 +720,70 @@
         osc.type = 'sine'; osc.frequency.value = 220;
         gain.gain.setValueAtTime(0.08, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
         osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+    }
+
+    // Keypress sound profiles. 'synth' is offline; the rest stream Monkeytype's real switch
+    // samples (folder id -> number of randomized variants) from raw.githubusercontent.
+    const SOUND_BASE = 'https://raw.githubusercontent.com/monkeytypegame/monkeytype/master/frontend/static/sounds';
+    const SOUND_PROFILES = {
+        synth: { name: 'Synth Click (offline)', synth: true },
+        '1':  { name: 'Click', n: 3 },
+        '3':  { name: 'Pop', n: 3 },
+        '5':  { name: 'Typewriter', n: 6 },
+        '6':  { name: 'Osu', n: 3 },
+        '7':  { name: 'Hitmarker', n: 3 },
+        '20': { name: 'Cherry MX Blue (ABS)', n: 10 },
+        '21': { name: 'Cherry MX Blue (PBT)', n: 10 },
+        '18': { name: 'Cherry MX Black (ABS)', n: 10 },
+        '22': { name: 'Cherry MX Brown', n: 10 },
+        '23': { name: 'Kailh Box White', n: 10 },
+        '24': { name: 'Razer Green', n: 10 },
+        '25': { name: 'Tealios V2', n: 10 }
+    };
+    let soundBuffers = {};   // profile id -> decoded AudioBuffer[] ([] = loading, null = failed)
+
+    async function loadSoundProfile(id) {
+        const prof = SOUND_PROFILES[id];
+        if (!prof || prof.synth || soundBuffers[id]) return;   // synth, unknown, or already (being) loaded
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        soundBuffers[id] = [];                                  // mark in-flight to avoid duplicate fetches
+        try {
+            soundBuffers[id] = await Promise.all(
+                Array.from({ length: prof.n }, (_, i) =>
+                    fetch(`${SOUND_BASE}/click${id}/${i + 1}.wav`)
+                        .then(r => r.arrayBuffer())
+                        .then(b => audioCtx.decodeAudioData(b)))
+            );
+        } catch (e) { console.warn('Sound profile load failed, using synth fallback.', e); soundBuffers[id] = null; }
+    }
+
+    function playSynthClick() {
+        const now = audioCtx.currentTime;
+        // Short filtered noise burst -> mechanical "click"
+        const buffer = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.03), audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+        const src = audioCtx.createBufferSource(); src.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 2200; filter.Q.value = 0.7;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.22, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        src.start(now); src.stop(now + 0.03);
+    }
+
+    function playClickSound() {
+        if (!config.sound) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const id = config.soundProfile || 'synth';
+        const bufs = soundBuffers[id];
+        if (id !== 'synth' && bufs && bufs.length) {           // real sample: random variant
+            const src = audioCtx.createBufferSource(); src.buffer = bufs[Math.floor(Math.random() * bufs.length)];
+            const gain = audioCtx.createGain(); gain.gain.value = 0.7;
+            src.connect(gain); gain.connect(audioCtx.destination); src.start();
+            return;
+        }
+        playSynthClick();                                      // offline / still-loading fallback
     }
 
     // --- JSON Parsing (LayerForge ZMK AST Engine) ---
@@ -784,6 +902,57 @@
         return false;
     }
 
+    function getRow(hw, pos) {
+        if (pos.includes('T')) return null;             // thumb cluster — no row
+        const m = (hw === 'ansi60') ? pos.match(/^K(\d)/) : pos.match(/R(\d)/);
+        return m ? parseInt(m[1]) : null;
+    }
+    function getHomeRow(hw) {
+        const home = HARDWARE[hw].pos.find(p => isHomerow(hw, p));
+        return home ? getRow(hw, home) : null;          // derive from existing home-row data
+    }
+    function effectiveX(k) {                             // rotated center x, in key units
+        const x = k.x || 0, y = k.y || 0, w = k.w || 1, h = k.h || 1;
+        const px = x + w / 2, py = y + h / 2;
+        if (!k.r) return px;
+        const cx = (k.rx !== undefined ? k.rx : x), cy = (k.ry !== undefined ? k.ry : y);
+        const rad = k.r * (Math.PI / 180);
+        return Math.cos(rad) * (px - cx) - Math.sin(rad) * (py - cy) + cx;
+    }
+    function getColBounds(hw) {                          // x-range of the non-thumb keys
+        const geo = HARDWARE[hw].geo, posArray = HARDWARE[hw].pos;
+        let min = Infinity, max = -Infinity;
+        geo.forEach((k, i) => {
+            if (getRow(hw, posArray[i]) === null) return;   // skip thumbs
+            const x = k.x || 0;
+            if (x < min) min = x; if (x > max) max = x;
+        });
+        return { min, max };
+    }
+    function getThumbBounds(hw) {                        // x-range of the thumb cluster
+        const geo = HARDWARE[hw].geo, posArray = HARDWARE[hw].pos;
+        let min = Infinity, max = -Infinity;
+        geo.forEach((k, i) => {
+            if (getRow(hw, posArray[i]) !== null) return;   // thumbs only
+            const x = effectiveX(k);
+            if (x < min) min = x; if (x > max) max = x;
+        });
+        return { min, max };
+    }
+    function isWithinHomeBand(hw, pos, idx) {
+        if (!config.compactRows) return true;           // feature off — show everything
+        const r = getRow(hw, pos);
+        if (r === null) {                               // thumb: keep only the outermost on each side
+            const x = effectiveX(HARDWARE[hw].geo[idx]);
+            const t = getThumbBounds(hw);
+            return x <= t.min + 0.001 || x >= t.max - 0.001;
+        }
+        if (Math.abs(r - getHomeRow(hw)) > 1) return false;
+        const x = HARDWARE[hw].geo[idx].x || 0;         // also drop far-left / far-right columns
+        const { min, max } = getColBounds(hw);
+        return x > min + 0.001 && x < max - 0.001;
+    }
+
     function buildMap(hw, layoutName, type) {
         if (type === 'target' && layoutName === 'default') {
             layoutName = config.sourceKey; 
@@ -836,6 +1005,7 @@
 
         geo.forEach((k, i) => {
             const p = posArray[i];
+            if (!isWithinHomeBand(hw, p, i)) return;    // skip outer rows/columns (viewBox auto-tightens)
             const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
             g.setAttribute("id", `key-${p}`); 
             
@@ -898,6 +1068,7 @@
             let displayLabel = (label === "SPACE" || label === " ") ? "Space" : (isBlank ? "" : label);
             text.textContent = displayLabel;
             text.setAttribute("font-size", displayLabel.length > 2 ? "12px" : (displayLabel.length > 1 ? "14px" : "18px"));
+            text.style.fill = (config.fingerColors && !isBlank) ? getKeyColor(p) : '';
         });
         highlightExpected();
     }
@@ -929,6 +1100,18 @@
             }
         }
         return 'other';
+    }
+
+    const FINGER_COLORS = {           // mirrored: L/R of each finger share a maximally-distinct hue
+        pinky: '#ffe600',  // bright yellow (avoid red — reads as an error)
+        ring:  '#ff7b00',  // orange
+        mid:   '#4ade80',  // green
+        index: '#4aa3ff',  // blue
+        thumb: '#e879f9'   // magenta
+    };
+    function getKeyColor(pos) {
+        const finger = getFingerName(pos).replace(/^[LR]\s/, '');   // drop hand -> mirror
+        return FINGER_COLORS[finger] || '';
     }
 
     function handleDragStart(e, pos) {
@@ -988,11 +1171,32 @@ if (state.sample.length > 0) {
         }
 		
 		
+        const cmap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+        const colorFor = {}, fingerFor = {};            // label -> finger color / finger name (mirror-aware)
+        Object.keys(cmap).forEach(p => {
+            const v = (cmap[p] || '').toUpperCase(); if (!v || (v in fingerFor)) return;
+            fingerFor[v] = getFingerName(p); colorFor[v] = getKeyColor(p);
+        });
+        // Mark same-finger neighbors within a word (consecutive letters using the same finger)
+        const sfb = new Set();
+        for (let i = 0; i + 1 < state.sample.length; i++) {
+            const a = state.sample[i], b = state.sample[i + 1];
+            if (a === ' ' || b === ' ') continue;
+            const fa = fingerFor[a.toUpperCase()], fb = fingerFor[b.toUpperCase()];
+            if (fa && fa === fb && fa !== 'other') { sfb.add(i); sfb.add(i + 1); }
+        }
+
         DOM.textSpans.forEach((span, i) => {
             span.removeAttribute('id');
-            if (i < typedLen) span.className = state.typed[i] === state.sample[i] ? 'correct-text' : 'error-char';
-            else if (i === typedLen) { span.className = ''; span.id = 'active-char'; }
-            else span.className = '';
+            if (i < typedLen) {                         // typed: let correct/error class own the color
+                span.className = state.typed[i] === state.sample[i] ? 'correct-text' : 'error-char';
+                span.style.color = '';
+            } else {                                     // upcoming/active: tint by finger column
+                if (i === typedLen) { span.className = ''; span.id = 'active-char'; } else span.className = '';
+                const ch = state.sample[i];
+                span.style.color = config.fingerColors ? (colorFor[ch === ' ' ? 'SPACE' : ch.toUpperCase()] || '') : '';
+            }
+            if (sfb.has(i)) span.classList.add('sfb');  // append; coexists with correct/error classes
         });
 
 const activeChar = document.getElementById('active-char');
@@ -1495,6 +1699,7 @@ if (state.testCompleted) {
         // 4. CORE TYPING EVALUATOR
         if (mappedChar.length === 1 && state.typed.length < state.sample.length) {
             e.preventDefault();
+            playClickSound();                            // mechanical click on every keypress
             const targetChar = state.sample[state.typed.length];
             const isCorrect = (config.mode === 'custom') ? (mappedChar === targetChar) : (mappedChar.toLowerCase() === targetChar.toLowerCase());
 
@@ -1559,7 +1764,9 @@ if (state.testCompleted) {
         
         DOM.targetSelect.insertBefore(new Option('Default (Same as Source)', 'default'), DOM.targetSelect.firstChild);
 
-        loadConfig(); 
+        Object.keys(SOUND_PROFILES).forEach(k => DOM.soundProfileSelect.add(new Option(SOUND_PROFILES[k].name, k)));
+
+        loadConfig();
 
         DOM.hwSelect.onchange = (e) => { setPref('hw', e.target.value); };
         DOM.sourceSelect.onchange = (e) => { 
@@ -1576,8 +1783,11 @@ if (state.testCompleted) {
         DOM.wordCountSelect.onchange = (e) => { setPref('wordCount', e.target.value); if(config.mode === 'words') generateWords(); };
         DOM.timedSelect.onchange = (e) => { setPref('timed', e.target.value); if (parseInt(e.target.value) > 0) generateWords(); }; 
         
-        DOM.wordsBtn.onclick = generateWords; 
-        DOM.newsBtn.onclick = fetchNews; 
+        DOM.soundProfileSelect.onchange = (e) => { setPref('soundProfile', e.target.value); };
+        if (config.soundProfile && config.soundProfile !== 'synth') loadSoundProfile(config.soundProfile);  // preload saved choice
+
+        DOM.wordsBtn.onclick = generateWords;
+        DOM.newsBtn.onclick = fetchNews;
         DOM.myTextBtn.onclick = openModal;
         
         if (config.mode === 'words') setActiveModeBtn('wordsBtn');
