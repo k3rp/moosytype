@@ -12,7 +12,7 @@
 
 <br>
 
-<a href="https://moosylog.github.io/moosytype/" target="_blank">
+<a href="https://k3rp.github.io/moosytype/" target="_blank">
   <img 
     src="https://img.shields.io/badge/🚀%20LAUNCH%20MOOSYTYPE-CLICK%20TO%20START-e2b714?style=for-the-badge"
     alt="Launch Moosytype"
