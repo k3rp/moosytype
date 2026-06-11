@@ -147,6 +147,12 @@
 		 
         .blinking { animation: caretBlink 1s infinite; }
 
+        #errorGhost {
+           position: absolute; left: 0; top: 0; z-index: 9; display: none;
+           color: #fff; font-weight: normal; font-size: 0.6em;
+           pointer-events: none;
+        }
+
         /* --- KEYBOARD --- */
         .keyboard-container { width: 100%; max-width: 1050px; position: relative; display: flex; flex-direction: column; align-items: center; transition: max-width 0.3s ease; }
         #keyboardSvg { width: 100%; height: auto; overflow: visible; display: block; }
@@ -385,6 +391,17 @@
             </div>
             <div class="mt-setting-row">
                 <div class="mt-setting-label">
+                    <span class="mt-setting-title">Stop on Error</span>
+                    <span class="mt-setting-desc">Hold the cursor on a mistake until you fix it</span>
+                </div>
+                <div class="mt-setting-action">
+                    <button class="mt-toggle-btn active" id="tgl-stopOnError-off" onclick="setStopMode('off')">off</button>
+                    <button class="mt-toggle-btn" id="tgl-stopOnError-char" onclick="setStopMode('char')">char</button>
+                    <button class="mt-toggle-btn" id="tgl-stopOnError-word" onclick="setStopMode('word')">word</button>
+                </div>
+            </div>
+            <div class="mt-setting-row">
+                <div class="mt-setting-label">
                     <span class="mt-setting-title">Mirror Layout</span>
                     <span class="mt-setting-desc">Swap left and right hands visually</span>
                 </div>
@@ -443,6 +460,7 @@
         <div class="sample-text-container" id="sampleContainer">
             <div id="textWrapper">
                 <div id="caret" class="blinking"></div>
+                <div id="errorGhost"></div>
                 <div id="sampleDisplay"></div>
             </div>
         </div>
@@ -544,7 +562,7 @@
     let config = {
         hw: 'go60', sourceKey: 'qwerty', tgt: 'default', wordCount: '25', timed: '0', mode: 'words',
         showKb: true, homerow: false, compactRows: false, fingerColors: false, keypress: true, hints: true,
-        mirror: false, sound: true, debug: false, vCenter: false, soundProfile: 'synth',
+        mirror: false, sound: true, debug: false, vCenter: false, soundProfile: 'synth', stopOnError: 'off',
         sourceJsonMap: null, targetJsonMap: null, draggedMap: null
     };
 
@@ -554,7 +572,7 @@
         testStarted: false, testCompleted: false, startTime: null, mistakes: 0,
         mistakeChars: {}, mistakeWords: new Set(), practiceTargetChars: {},
         wpmSnapshots: [], currentStreak: 0, bestStreak: 0, fingerHits: {},
-        timerSeconds: 0, timerInterval: null, timerRemaining: 0, tabActive: false, setupOpen: false
+        timerSeconds: 0, timerInterval: null, timerRemaining: 0, tabActive: false, setupOpen: false, errorChar: null
     };
 
     const DOM = {};
@@ -570,7 +588,7 @@
             myTextBtn: document.getElementById('myTextBtn'), textModal: document.getElementById('textModal'),
             customTextInput: document.getElementById('customTextInput'), keyboardSvg: document.getElementById('keyboardSvg'),
             sampleContainer: document.getElementById('sampleContainer'), textWrapper: document.getElementById('textWrapper'), sampleDisplay: document.getElementById('sampleDisplay'),
-            caret: document.getElementById('caret'), dragHint: document.getElementById('dragHint'),
+            caret: document.getElementById('caret'), errorGhost: document.getElementById('errorGhost'), dragHint: document.getElementById('dragHint'),
             progressIndicator: document.getElementById('progressIndicator'), debugArea: document.getElementById('debugArea'),
             timerDisplay: document.getElementById('timerDisplay'), streakDisplay: document.getElementById('streakDisplay'),
             streakCount: document.getElementById('streakCount'), statsContainer: document.getElementById('statsContainer'),
@@ -626,6 +644,10 @@
         syncToggleUI('mirror', config.mirror);
         syncToggleUI('sound', config.sound);
         syncToggleUI('debug', config.debug);
+        // Migrate legacy boolean stopOnError (true → char, false → off)
+        if (config.stopOnError === true) config.stopOnError = 'char';
+        else if (config.stopOnError === false || !config.stopOnError) config.stopOnError = 'off';
+        setStopMode(config.stopOnError);
 
         renderBestScores();
     }
@@ -658,6 +680,14 @@
         let onBtn = document.getElementById(`tgl-${key}-on`);
         let offBtn = document.getElementById(`tgl-${key}-off`);
         if (onBtn && offBtn) { onBtn.classList.toggle('active', val); offBtn.classList.toggle('active', !val); }
+    }
+
+    function setStopMode(val) {
+        config.stopOnError = val; saveConfig();
+        ['off', 'char', 'word'].forEach(m => {
+            const b = document.getElementById(`tgl-stopOnError-${m}`);
+            if (b) b.classList.toggle('active', m === val);
+        });
     }
 
     function clearAllData() {
@@ -1192,9 +1222,12 @@ if (state.sample.length > 0) {
                 span.className = state.typed[i] === state.sample[i] ? 'correct-text' : 'error-char';
                 span.style.color = '';
             } else {                                     // upcoming/active: tint by finger column
-                if (i === typedLen) { span.className = ''; span.id = 'active-char'; } else span.className = '';
+                const isActive = i === typedLen;
+                const activeErr = isActive && state.errorChar !== null;
+                if (isActive) { span.className = activeErr ? 'error-char' : ''; span.id = 'active-char'; } else span.className = '';
                 const ch = state.sample[i];
-                span.style.color = config.fingerColors ? (colorFor[ch === ' ' ? 'SPACE' : ch.toUpperCase()] || '') : '';
+                // active char turns red while a wrong guess is pending; don't let finger color override it
+                span.style.color = activeErr ? '' : (config.fingerColors ? (colorFor[ch === ' ' ? 'SPACE' : ch.toUpperCase()] || '') : '');
             }
             if (sfb.has(i)) span.classList.add('sfb');  // append; coexists with correct/error classes
         });
@@ -1205,6 +1238,16 @@ if (activeChar && DOM.caret) {
     DOM.caret.style.display = state.testCompleted || state.setupOpen ? 'none' : 'block';
     DOM.caret.style.transform = `translate(${activeChar.offsetLeft}px, ${activeChar.offsetTop}px)`;
     clearTimeout(blinkTimeout); blinkTimeout = setTimeout(() => DOM.caret.classList.add('blinking'), 500);
+
+    if (DOM.errorGhost) {
+        if (state.errorChar !== null && !state.testCompleted && !state.setupOpen) {
+            DOM.errorGhost.textContent = state.errorChar === ' ' ? '␣' : state.errorChar;
+            DOM.errorGhost.style.display = 'block';
+            DOM.errorGhost.style.transform = `translate(${activeChar.offsetLeft}px, ${activeChar.offsetTop + 26}px)`;
+        } else {
+            DOM.errorGhost.style.display = 'none';
+        }
+    }
             
             const lineHeight = 51.2;
             const currentLine = Math.round(activeChar.offsetTop / lineHeight);
@@ -1228,7 +1271,7 @@ if (activeChar && DOM.caret) {
             if(cleanText.endsWith(' ')) cleanText = cleanText.slice(0, -1); state.sample = cleanText;
         } else state.sample = text || "";
         
-        state.typed = ""; state.testStarted = false; state.testCompleted = false; state.startTime = null; 
+        state.typed = ""; state.errorChar = null; state.testStarted = false; state.testCompleted = false; state.startTime = null;
         state.mistakes = 0; state.mistakeChars = {}; state.mistakeWords = new Set();
         state.wpmSnapshots = []; state.currentStreak = 0; state.bestStreak = 0; state.fingerHits = {};
         
@@ -1290,6 +1333,7 @@ if (activeChar && DOM.caret) {
 function endTest(earlyExit = false) {
         state.testCompleted = true; stopSnapshots(); stopTimer(); DOM.streakDisplay.style.display = 'none';
         if (DOM.caret) DOM.caret.style.display = 'none';
+        if (DOM.errorGhost) DOM.errorGhost.style.display = 'none';
         DOM.mainHeader.classList.remove('typing-focus');
         
         const timeSec = Math.max(0.1, (Date.now() - state.startTime) / 1000);
@@ -1667,8 +1711,18 @@ if (state.testCompleted) {
         }
 		
 		
-        if (mappedChar === "Backspace") { 
-            e.preventDefault(); state.typed = state.typed.slice(0, -1); updateTextUI(); highlightExpected(); return; 
+        if (mappedChar === "Backspace") {
+            e.preventDefault();
+            playClickSound();
+            if (state.errorChar !== null) {
+                state.errorChar = null;                  // clear the pending wrong char first
+            } else if (e.ctrlKey || e.altKey || e.metaKey) {
+                // Delete the whole previous word: drop trailing spaces, then the last word
+                state.typed = state.typed.replace(/\s+$/, '').replace(/\S+$/, '');
+            } else {
+                state.typed = state.typed.slice(0, -1);
+            }
+            updateTextUI(); highlightExpected(); return;
         }
 
         // Catch blank keys from JSON (&none / &trans)
@@ -1699,6 +1753,18 @@ if (state.testCompleted) {
         // 4. CORE TYPING EVALUATOR
         if (mappedChar.length === 1 && state.typed.length < state.sample.length) {
             e.preventDefault();
+
+            // Stop on error (letter): a wrong guess is still pending — show the latest guess,
+            // count it, and keep blocking until Backspace clears it
+            if (config.stopOnError === 'char' && state.errorChar !== null) {
+                playClickSound(); playErrorSound();
+                state.mistakes++; state.currentStreak = 0; DOM.streakCount.textContent = '0';
+                const exp = state.sample[state.typed.length]?.toLowerCase();
+                if (exp && exp.match(/[a-z]/)) state.mistakeChars[exp] = (state.mistakeChars[exp] || 0) + 1;
+                state.errorChar = mappedChar; updateTextUI(); highlightExpected();
+                return;
+            }
+
             playClickSound();                            // mechanical click on every keypress
             const targetChar = state.sample[state.typed.length];
             const isCorrect = (config.mode === 'custom') ? (mappedChar === targetChar) : (mappedChar.toLowerCase() === targetChar.toLowerCase());
@@ -1727,7 +1793,25 @@ if (state.testCompleted) {
                 const cw = getCurrentWord(state.sample, state.typed.length); if (cw) state.mistakeWords.add(cw);
             }
 
-            state.typed += mappedChar; updateTextUI(); highlightExpected(); 
+            // Stop on error (letter): show the wrong char below the cursor instead of advancing
+            if (config.stopOnError === 'char' && !isCorrect) {
+                state.errorChar = mappedChar; updateTextUI(); highlightExpected(); return;
+            }
+            // Stop on error (word): block the space at a word boundary if the word has errors
+            if (config.stopOnError === 'word' && targetChar === ' ') {
+                // At a word boundary: block the space if the just-typed word has any errors
+                const wordStart = state.sample.lastIndexOf(' ', state.typed.length - 1) + 1;
+                let wordOk = true;
+                for (let i = wordStart; i < state.typed.length; i++) {
+                    const same = config.mode === 'custom'
+                        ? state.typed[i] === state.sample[i]
+                        : (state.typed[i] || '').toLowerCase() === (state.sample[i] || '').toLowerCase();
+                    if (!same) { wordOk = false; break; }
+                }
+                if (!wordOk) { updateTextUI(); highlightExpected(); return; }
+            }
+
+            state.typed += mappedChar; updateTextUI(); highlightExpected();
             if (state.typed.length === state.sample.length && state.sample.length > 0) checkTestEnd();
         }
     });
