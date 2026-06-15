@@ -214,6 +214,13 @@
         .spark-tooltip .tt-err { color: var(--error); }
         .spark-tooltip .tt-sec { color: var(--secondary-text); }
 
+        .review-text { position: relative; width: 100%; font-size: 16px; line-height: 1.7; letter-spacing: 0.5px; color: var(--secondary-text); word-break: break-word; margin: 0 0 24px; max-height: 124px; overflow-y: auto; }
+        .review-text .rc { color: var(--correct); }
+        .review-text .re { color: var(--error) !important; border-bottom: 2px solid var(--error); background: rgba(202, 71, 84, 0.15); }
+        .review-text .ru { color: var(--secondary-text); opacity: 0.55; }
+        .review-text .rev-active { background: var(--text-color); color: var(--bg-color) !important; border-radius: 2px; border-bottom-color: transparent; }
+        .review-hint { font-size: 11px; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
         .stats-bottom { display: flex; flex-direction: column; gap: 15px; width: 100%; }
         .sub-stats { display: flex; gap: 30px; flex-wrap: wrap; }
         .sub-stat { display: flex; flex-direction: column; color: var(--secondary-text); font-size: 14px; line-height: 1.2;}
@@ -551,7 +558,9 @@
                     <div id="sparkTooltip" class="spark-tooltip"></div>
                 </div>
             </div>
-            
+
+            <div id="reviewText" class="review-text"></div>
+
             <div class="stats-bottom">
                 <div class="sub-stats">
                     <div class="sub-stat">test type<br><span id="statTestType">words 25</span></div>
@@ -650,7 +659,7 @@
         isDragging: false, dragSourcePos: null, currentMap: {}, sourceMap: {},
         testStarted: false, testCompleted: false, startTime: null, mistakes: 0,
         mistakeChars: {}, mistakeWords: new Set(), practiceTargetChars: {},
-        keyTimeline: [], errorTimeline: [], chartData: null, testSummary: null, currentStreak: 0, bestStreak: 0, fingerHits: {},
+        keyTimeline: [], errorTimeline: [], chartData: null, testSummary: null, secondPositions: [], currentStreak: 0, bestStreak: 0, fingerHits: {},
         timerSeconds: 0, timerInterval: null, timerRemaining: 0, tabActive: false, setupOpen: false, errorChar: null
     };
 
@@ -673,7 +682,8 @@
             streakCount: document.getElementById('streakCount'), statsContainer: document.getElementById('statsContainer'),
             statWpm: document.getElementById('statWpm'), statAcc: document.getElementById('statAcc'),
             statTime: document.getElementById('statTime'), statWords: document.getElementById('statWords'),
-            fingerStats: document.getElementById('fingerStats'), wpmSparkline: document.getElementById('wpmSparkline'), 
+            fingerStats: document.getElementById('fingerStats'), wpmSparkline: document.getElementById('wpmSparkline'),
+            reviewText: document.getElementById('reviewText'),
             historyInfo: document.getElementById('historyInfo'), mistakeInfo: document.getElementById('mistakeInfo'), 
             mistakeHint: document.getElementById('mistakeHint'), dragGhost: document.getElementById('dragGhost'), 
             ghostText: document.getElementById('ghostText'), modeButtons: document.querySelectorAll('#modeButtons .mt-btn'),
@@ -1366,6 +1376,7 @@ if (activeChar && DOM.caret) {
         stopTimer(); stopSnapshots(); DOM.streakDisplay.style.display = 'none'; DOM.streakCount.textContent = '0';
         DOM.statsContainer.style.display = 'none'; DOM.mistakeInfo.innerHTML = ''; DOM.mistakeHint.innerHTML = '';
         DOM.fingerStats.innerHTML = ''; DOM.wpmSparkline.innerHTML = ''; DOM.historyInfo.innerHTML = '';
+        if (DOM.reviewText) DOM.reviewText.innerHTML = ''; state.secondPositions = [];
         
         DOM.typingWrapper.classList.remove('stats-active');
         document.querySelectorAll('.key-rect').forEach(rect => {
@@ -1483,7 +1494,7 @@ function endTest(earlyExit = false) {
             applyHeatMap(state.mistakeChars); renderPracticeImprovement();
         }
 
-        renderSparkline(); renderFingerStats(); renderInsights();
+        renderSparkline(); renderReviewText(); renderFingerStats(); renderInsights();
 
         // Check if there are any actual mistakes left over
 // Check if there are any actual mistakes left over
@@ -2013,8 +2024,69 @@ function endTest(earlyExit = false) {
             tip.style.left = (r.left - cRect.left + cx / W * r.width) + 'px';
             tip.style.top = (r.top - cRect.top + cy / H * r.height) + 'px';
             tip.style.opacity = 1;
+            highlightReviewSecond(i);
         };
-        svg.onmouseleave = () => { tip.style.opacity = 0; cursor.style.opacity = 0; marker.setAttribute('opacity', 0); };
+        svg.onmouseleave = () => { tip.style.opacity = 0; cursor.style.opacity = 0; marker.setAttribute('opacity', 0); clearReviewHighlight(); };
+    }
+
+    // Compact read-only replay of the run's text; chars colored by correctness.
+    function renderReviewText() {
+        const cont = DOM.reviewText; if (!cont) return;
+        if (!state.sample) { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+        cont.style.display = 'block';
+
+        // map each elapsed second -> the sample positions typed during it (for chart hover sync)
+        const secPos = [];
+        state.keyTimeline.forEach(k => { const s = Math.floor(k.t / 1000); (secPos[s] = secPos[s] || []).push(k.p); });
+        state.secondPositions = secPos;
+
+        // Mirror the live test's coloring: finger tint (when enabled) + same-finger-bigram underline.
+        const cmap = config.mirror ? getMirroredMap(state.currentMap) : state.currentMap;
+        const colorFor = {}, fingerFor = {};
+        Object.keys(cmap).forEach(p => { const v = (cmap[p] || '').toUpperCase(); if (!v || (v in fingerFor)) return; fingerFor[v] = getFingerName(p); colorFor[v] = getKeyColor(p); });
+        const sfb = new Set();
+        for (let i = 0; i + 1 < state.sample.length; i++) {
+            const a = state.sample[i], b = state.sample[i + 1];
+            if (a === ' ' || b === ' ') continue;
+            const fa = fingerFor[a.toUpperCase()], fb = fingerFor[b.toUpperCase()];
+            if (fa && fa === fb && fa !== 'other') { sfb.add(i); sfb.add(i + 1); }
+        }
+
+        // Any position that had a wrong keystroke is an error (covers stop-on-error, where
+        // wrong keys never enter state.typed) — this is exactly the "where were my errors" view.
+        const errPos = new Set();
+        state.keyTimeline.forEach(k => { if (!k.c) errPos.add(k.p); });
+
+        const esc = ch => ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '&' ? '&amp;' : ch;
+        const typed = state.typed;
+        let html = '<div class="review-hint">review — hover the wpm chart to trace your typing</div>';
+        for (let i = 0; i < state.sample.length; i++) {
+            const ch = state.sample[i];
+            let cls, style = '';
+            if (errPos.has(i)) cls = 're';                  // error -> red (wins over finger color)
+            else if (i < typed.length) {                    // typed correctly
+                cls = 'rc';
+                if (config.fingerColors) { const c = colorFor[ch === ' ' ? 'SPACE' : ch.toUpperCase()]; if (c) style = ` style="color:${c}"`; }
+            } else cls = 'ru';                              // untyped leftover
+            if (sfb.has(i)) cls += ' sfb';
+            html += `<span id="rv-${i}" class="${cls}"${style}>${esc(ch)}</span>`;
+        }
+        cont.innerHTML = html;
+    }
+
+    let reviewHi = [];
+    function highlightReviewSecond(sec) {
+        clearReviewHighlight();
+        const ps = state.secondPositions[sec]; if (!ps || !ps.length) return;
+        ps.forEach(p => { const sp = document.getElementById('rv-' + p); if (sp) { sp.classList.add('rev-active'); reviewHi.push(p); } });
+        const first = document.getElementById('rv-' + ps[0]);
+        if (first && DOM.reviewText.scrollHeight > DOM.reviewText.clientHeight) {
+            DOM.reviewText.scrollTop = Math.max(0, first.offsetTop - DOM.reviewText.clientHeight / 2);
+        }
+    }
+    function clearReviewHighlight() {
+        reviewHi.forEach(p => { const sp = document.getElementById('rv-' + p); if (sp) sp.classList.remove('rev-active'); });
+        reviewHi = [];
     }
 
     function startSnapshots() { state.keyTimeline = []; state.errorTimeline = []; }
