@@ -190,12 +190,29 @@
         .stat-title { color: var(--secondary-text); font-size: 32px; line-height: 1; margin-bottom: -5px; }
         .stat-value { color: var(--text-color); font-size: 64px; font-weight: 500; line-height: 1; }
         
-        .chart-container { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; }
-        #wpmSparkline { width: 100%; height: 100%; max-height: 150px; display: block; }
+        .chart-container { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; position: relative; }
+        #wpmSparkline { width: 100%; height: 100%; max-height: 170px; display: block; }
         .sparkline-line { stroke: var(--text-color); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
         .sparkline-area { fill: var(--text-color); opacity: 0.1; }
         .sparkline-dot { fill: var(--text-color); }
         .sparkline-label { fill: var(--secondary-text); font-size: 14px; }
+        .sparkline-raw { stroke: var(--secondary-text); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; opacity: 0.55; }
+        .sparkline-error { fill: var(--error); font-size: 13px; font-weight: bold; text-anchor: middle; dominant-baseline: central; }
+        .sparkline-grid { stroke: var(--secondary-text); stroke-width: 1; opacity: 0.13; }
+        .sparkline-axis { fill: var(--secondary-text); font-size: 11px; }
+        .sparkline-legend { font-size: 12px; font-weight: bold; }
+        .sparkline-overlay { fill: transparent; cursor: crosshair; }
+        .sparkline-cursor { stroke: var(--text-color); stroke-width: 1; opacity: 0; transition: opacity 0.1s; }
+        .spark-tooltip {
+            position: absolute; pointer-events: none; z-index: 50; white-space: nowrap;
+            background: var(--bg-color); border: 1px solid var(--secondary-text); border-radius: 6px;
+            padding: 6px 10px; font-size: 12px; color: var(--key-text); line-height: 1.4;
+            transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity 0.1s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .spark-tooltip .tt-wpm { color: var(--text-color); font-weight: bold; }
+        .spark-tooltip .tt-err { color: var(--error); }
+        .spark-tooltip .tt-sec { color: var(--secondary-text); }
 
         .stats-bottom { display: flex; flex-direction: column; gap: 15px; width: 100%; }
         .sub-stats { display: flex; gap: 30px; flex-wrap: wrap; }
@@ -213,6 +230,35 @@
         
         .history-summary { color: var(--secondary-text); font-size: 14px; display: flex; align-items: center; gap: 10px; }
         .history-summary span { color: var(--correct); }
+
+        /* --- ROLLING INSIGHTS --- */
+        .insights-compact { color: var(--secondary-text); font-size: 13px; line-height: 1.6; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+        .insights-compact b { color: var(--correct); font-weight: bold; }
+        .ins-dim { color: var(--secondary-text); opacity: 0.7; }
+        .ins-summary { display: flex; flex-wrap: wrap; gap: 20px; font-size: 14px; color: var(--secondary-text); margin-bottom: 16px; }
+        .ins-summary b { color: var(--text-color); font-size: 18px; }
+        .ins-block { margin-bottom: 14px; }
+        .ins-cols { display: flex; gap: 24px; flex-wrap: wrap; }
+        .ins-cols .ins-block { flex: 1; min-width: 220px; }
+        .ins-label { font-size: 11px; color: var(--secondary-text); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .ins-label .ins-dim { text-transform: none; letter-spacing: 0; }
+        .ins-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .ins-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--bg-color); border: 1px solid #1e1e1e; border-radius: 6px; padding: 4px 9px; font-size: 14px; color: var(--correct); }
+        .ins-chip b { color: var(--correct); font-weight: bold; }
+        .ins-chip.ins-good { border-color: rgba(209,208,197,0.2); }
+        .ins-chip.ins-good b { color: var(--text-color); }
+
+        /* --- WPM-BY-DAY CHART --- */
+        #dailyChart { width: 100%; height: auto; max-height: 200px; display: block; overflow: visible; }
+        .daily-band { fill: var(--text-color); opacity: 0.13; }
+        .daily-whisker { stroke: var(--secondary-text); stroke-width: 1.5; opacity: 0.45; }
+        .daily-cap { stroke: var(--secondary-text); stroke-width: 1.5; opacity: 0.45; }
+        .daily-line { stroke: var(--text-color); stroke-width: 2.5; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+        .daily-dot { fill: var(--text-color); stroke: var(--key-color); stroke-width: 2; }
+        .daily-hit { fill: transparent; cursor: pointer; }
+        .daily-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--secondary-text); margin-top: 12px; }
+        .daily-legend b { color: var(--text-color); }
+        .daily-legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
 
         .restart-hint { color: var(--secondary-text); font-size: 14px; margin-top: 30px; text-align: center; width: 100%; }
 
@@ -290,6 +336,35 @@
         <div id="bestScoresContainer" style="display:none;">
             <div class="settings-section-title">Personal Bests (Top 5)</div>
             <div class="settings-section" id="bestScoresList" style="margin-bottom: 10px;"></div>
+        </div>
+
+        <div id="insightsContainer" style="display:none;">
+            <div class="settings-section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Insights — where your errors are</span>
+                <select id="insightsWindowSelect" class="mt-select" style="background:var(--bg-color); padding:4px 10px; border-radius:6px;">
+                    <option value="10">last 10</option>
+                    <option value="20">last 20</option>
+                    <option value="50">last 50</option>
+                    <option value="all">all time</option>
+                </select>
+            </div>
+            <div class="settings-section" id="insightsBody" style="padding:18px 20px; margin-bottom:10px;"></div>
+        </div>
+
+        <div id="dailyContainer" style="display:none;">
+            <div class="settings-section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>WPM by day — top-runs average &amp; daily spread</span>
+                <select id="dailyTopSelect" class="mt-select" style="background:var(--bg-color); padding:4px 10px; border-radius:6px;">
+                    <option value="3">top 3</option>
+                    <option value="5">top 5</option>
+                    <option value="10">top 10</option>
+                    <option value="all">all runs</option>
+                </select>
+            </div>
+            <div class="settings-section" style="padding:18px 20px; margin-bottom:10px;">
+                <svg id="dailyChart" preserveAspectRatio="none"></svg>
+                <div id="dailyLegend" class="daily-legend"></div>
+            </div>
         </div>
 
         <div class="settings-section-title">Matrix & Layout</div>
@@ -471,8 +546,9 @@
                     <div class="stat-item"><div class="stat-title">wpm</div><div id="statWpm" class="stat-value">0</div></div>
                     <div class="stat-item"><div class="stat-title">acc</div><div id="statAcc" class="stat-value">0%</div></div>
                 </div>
-                <div class="chart-container">
+                <div class="chart-container" id="chartContainer">
                     <svg id="wpmSparkline" preserveAspectRatio="none"></svg>
+                    <div id="sparkTooltip" class="spark-tooltip"></div>
                 </div>
             </div>
             
@@ -481,6 +557,7 @@
                     <div class="sub-stat">test type<br><span id="statTestType">words 25</span></div>
                     <div class="sub-stat">time<br><span id="statTime">0s</span></div>
                     <div class="sub-stat">words<br><span id="statWords">0</span></div>
+                    <div class="sub-stat">consistency<br><span id="statConsistency">0%</span></div>
                     <div class="sub-stat">streak<br><span id="statStreak">0</span></div>
                 </div>
                 
@@ -489,6 +566,7 @@
                 <div class="trouble-section">
                     <div id="mistakeInfo" class="mistake-chars"></div>
                     <div id="historyInfo" class="history-summary"></div>
+                    <div id="insightsCompact" class="insights-compact"></div>
                 </div>
             </div>
             
@@ -563,6 +641,7 @@
         hw: 'go60', sourceKey: 'qwerty', tgt: 'default', wordCount: '25', timed: '0', mode: 'words',
         showKb: true, homerow: false, compactRows: false, fingerColors: false, keypress: true, hints: true,
         mirror: false, sound: true, debug: false, vCenter: false, soundProfile: 'synth', stopOnError: 'off',
+        insightsWindow: 20, dailyTopN: 5,
         sourceJsonMap: null, targetJsonMap: null, draggedMap: null
     };
 
@@ -571,7 +650,7 @@
         isDragging: false, dragSourcePos: null, currentMap: {}, sourceMap: {},
         testStarted: false, testCompleted: false, startTime: null, mistakes: 0,
         mistakeChars: {}, mistakeWords: new Set(), practiceTargetChars: {},
-        wpmSnapshots: [], currentStreak: 0, bestStreak: 0, fingerHits: {},
+        keyTimeline: [], errorTimeline: [], chartData: null, testSummary: null, currentStreak: 0, bestStreak: 0, fingerHits: {},
         timerSeconds: 0, timerInterval: null, timerRemaining: 0, tabActive: false, setupOpen: false, errorChar: null
     };
 
@@ -600,8 +679,14 @@
             ghostText: document.getElementById('ghostText'), modeButtons: document.querySelectorAll('#modeButtons .mt-btn'),
             settingsMenu: document.getElementById('settingsMenu'), toastMsg: document.getElementById('toastMsg'),
             statTestType: document.getElementById('statTestType'), statStreak: document.getElementById('statStreak'),
+            statConsistency: document.getElementById('statConsistency'),
+            chartContainer: document.getElementById('chartContainer'), sparkTooltip: document.getElementById('sparkTooltip'),
             typingWrapper: document.getElementById('typingWrapper'), keyboardContainer: document.getElementById('keyboardContainer'),
             bestScoresList: document.getElementById('bestScoresList'), bestScoresContainer: document.getElementById('bestScoresContainer'),
+            insightsContainer: document.getElementById('insightsContainer'), insightsBody: document.getElementById('insightsBody'),
+            insightsCompact: document.getElementById('insightsCompact'), insightsWindowSelect: document.getElementById('insightsWindowSelect'),
+            dailyContainer: document.getElementById('dailyContainer'), dailyChart: document.getElementById('dailyChart'),
+            dailyTopSelect: document.getElementById('dailyTopSelect'), dailyLegend: document.getElementById('dailyLegend'),
             tabRestartOverlay: document.getElementById('tabRestartOverlay')
         });
     }
@@ -632,6 +717,8 @@
         DOM.wordCountSelect.value = config.wordCount;
         DOM.timedSelect.value = config.timed;
         DOM.soundProfileSelect.value = config.soundProfile;
+        DOM.insightsWindowSelect.value = String(config.insightsWindow);
+        DOM.dailyTopSelect.value = String(config.dailyTopN);
 
         syncToggleUI('showKb', config.showKb);
         syncToggleUI('homerow', config.homerow);
@@ -730,6 +817,7 @@
             DOM.timerDisplay.style.display = 'none';
             DOM.statsContainer.style.display = 'none';
             DOM.debugArea.style.display = 'none';
+            renderBestScores(); renderInsights(); renderDailyChart();
         } else {
             if (state.testCompleted) {
                 DOM.statsContainer.style.display = 'block';
@@ -1273,7 +1361,7 @@ if (activeChar && DOM.caret) {
         
         state.typed = ""; state.errorChar = null; state.testStarted = false; state.testCompleted = false; state.startTime = null;
         state.mistakes = 0; state.mistakeChars = {}; state.mistakeWords = new Set();
-        state.wpmSnapshots = []; state.currentStreak = 0; state.bestStreak = 0; state.fingerHits = {};
+        state.keyTimeline = []; state.errorTimeline = []; state.chartData = null; state.currentStreak = 0; state.bestStreak = 0; state.fingerHits = {};
         
         stopTimer(); stopSnapshots(); DOM.streakDisplay.style.display = 'none'; DOM.streakCount.textContent = '0';
         DOM.statsContainer.style.display = 'none'; DOM.mistakeInfo.innerHTML = ''; DOM.mistakeHint.innerHTML = '';
@@ -1382,15 +1470,20 @@ function endTest(earlyExit = false) {
         DOM.debugArea.style.display = 'none'; DOM.statsContainer.style.display = 'block';
         DOM.typingWrapper.classList.add('stats-active');
 
-        if (config.mode !== 'mistakes' && !earlyExit) { 
-            saveResult(wpm, acc, Math.round(timeSec), testTypeStr); 
-            renderHistorySummary(); applyHeatMap(state.mistakeChars); 
+        // Build chart + per-test analytics summary BEFORE saving so they get persisted
+        state.chartData = buildPerSecondStats(timeSec);
+        state.testSummary = buildTestSummary();
+        DOM.statConsistency.textContent = state.chartData.consistency + '%';
+
+        if (config.mode !== 'mistakes' && !earlyExit) {
+            saveResult(wpm, acc, Math.round(timeSec), testTypeStr);
+            renderHistorySummary(); applyHeatMap(state.mistakeChars);
             renderBestScores();
-        } else { 
-            applyHeatMap(state.mistakeChars); renderPracticeImprovement(); 
+        } else {
+            applyHeatMap(state.mistakeChars); renderPracticeImprovement();
         }
 
-        renderSparkline(); renderFingerStats();
+        renderSparkline(); renderFingerStats(); renderInsights();
 
         // Check if there are any actual mistakes left over
 // Check if there are any actual mistakes left over
@@ -1413,15 +1506,277 @@ function endTest(earlyExit = false) {
     function loadHistory() { try { return JSON.parse(localStorage.getItem('moosy_history') || '[]'); } catch { return []; } }
     
     function saveResult(wpm, acc, timeSec, modeStr) {
-        const history = loadHistory(); 
-        history.push({ wpm, acc, time: timeSec, mode: modeStr, date: Date.now(), chars: {...state.mistakeChars} });
-        if (history.length > 200) history.splice(0, history.length - 200); 
-        localStorage.setItem('moosy_history', JSON.stringify(history));
+        const history = loadHistory();
+        const s = state.testSummary || {};
+        history.push({
+            wpm, acc, time: timeSec, mode: modeStr, date: Date.now(),
+            chars: {...state.mistakeChars},
+            consistency: state.chartData ? state.chartData.consistency : null,
+            totalChars: state.typed.length,
+            charStats: s.charStats || {}, confusions: s.confusions || {},
+            bigrams: s.bigrams || {}, words: s.words || {}
+        });
+        if (history.length > 200) history.splice(0, history.length - 200);
+        try {
+            localStorage.setItem('moosy_history', JSON.stringify(history));
+        } catch (err) {
+            // localStorage quota hit — keep only the most recent runs and retry once
+            try { history.splice(0, Math.max(0, history.length - 50)); localStorage.setItem('moosy_history', JSON.stringify(history)); } catch (_) {}
+        }
     }
     
     function getRecentMistakeChars(n) {
         const recent = n ? loadHistory().slice(-n) : loadHistory(); const totals = {};
         recent.forEach(h => { if (h.chars) Object.keys(h.chars).forEach(c => { totals[c] = (totals[c] || 0) + h.chars[c]; }); }); return totals;
+    }
+
+    /* ----- Rolling analytics: per-test summary + insights over last N tests ----- */
+    const isLetter = ch => !!ch && ch.length === 1 && /[a-z]/i.test(ch);
+
+    // Walk this test's keystroke timeline into compact, persistable per-key / bigram / word stats.
+    function buildTestSummary() {
+        const tl = state.keyTimeline;
+        const charStats = {}, confusions = {}, bigrams = {}, words = {};
+
+        for (let i = 0; i < tl.length; i++) {
+            const cur = tl[i], e = (cur.e || '').toLowerCase();
+            if (isLetter(e)) {
+                if (!charStats[e]) charStats[e] = [0, 0];           // [seen, missed]
+                charStats[e][0]++; if (!cur.c) charStats[e][1]++;
+                if (!cur.c) {
+                    const k = (cur.k || '').toLowerCase();
+                    if (isLetter(k)) { const key = e + '>' + k; confusions[key] = (confusions[key] || 0) + 1; }
+                }
+            }
+            if (i > 0) {
+                const prev = tl[i - 1], pe = (prev.e || '').toLowerCase();
+                if (isLetter(pe) && isLetter(e)) {
+                    const bg = pe + e;
+                    if (!bigrams[bg]) bigrams[bg] = [0, 0, 0, 0];    // [n, errs, sumMs, latN]
+                    bigrams[bg][0]++;
+                    if (!cur.c) bigrams[bg][1]++;
+                    else if (prev.c) { bigrams[bg][2] += (cur.t - prev.t); bigrams[bg][3]++; }
+                }
+            }
+        }
+
+        // Word-level stats, grouped by sample word occurrence using the recorded sample index.
+        let start = 0;
+        for (let i = 0; i <= state.sample.length; i++) {
+            if (state.sample[i] === ' ' || i === state.sample.length) {
+                const word = state.sample.slice(start, i).toLowerCase();
+                if (word.length >= 2 && word.length <= 9 && /^[a-z]+$/.test(word)) {
+                    const ents = tl.filter(x => x.p >= start && x.p < i);
+                    const positions = new Set(ents.map(x => x.p));
+                    if (positions.size >= word.length) {           // word fully reached
+                        const errs = ents.filter(x => !x.c).length;
+                        if (!words[word]) words[word] = [0, 0, 0, 0]; // [n, sumMs, errs, latN]
+                        words[word][0]++; words[word][2] += errs;
+                        if (errs === 0) {
+                            const ts = ents.map(x => x.t);
+                            words[word][1] += Math.max(...ts) - Math.min(...ts);
+                            words[word][3]++;
+                        }
+                    }
+                }
+                start = i + 1;
+            }
+        }
+        return { charStats, confusions, bigrams, words };
+    }
+
+    // Aggregate the last n enriched tests into ranked, actionable insight lists.
+    function computeInsights(n) {
+        const all = loadHistory().filter(h => h.charStats && Object.keys(h.charStats).length);
+        const recent = n ? all.slice(-n) : all;
+        if (recent.length === 0) return null;
+
+        const sumChar = {}, sumConf = {}, sumBg = {}, sumWord = {};
+        const addPair = (acc, o, len) => { for (const k in o) { if (!acc[k]) acc[k] = new Array(len).fill(0); for (let j = 0; j < len; j++) acc[k][j] += (o[k][j] || 0); } };
+        recent.forEach(h => {
+            for (const c in (h.charStats || {})) { if (!sumChar[c]) sumChar[c] = [0, 0]; sumChar[c][0] += h.charStats[c][0]; sumChar[c][1] += h.charStats[c][1]; }
+            for (const k in (h.confusions || {})) sumConf[k] = (sumConf[k] || 0) + h.confusions[k];
+            addPair(sumBg, h.bigrams || {}, 4);
+            addPair(sumWord, h.words || {}, 4);
+        });
+
+        // Trouble keys + trend (compare miss-rate in newer half vs older half)
+        const half = Math.floor(recent.length / 2);
+        const older = recent.slice(0, half), newer = recent.slice(-half);
+        const rateIn = (set, c) => { let seen = 0, miss = 0; set.forEach(h => { const s = (h.charStats || {})[c]; if (s) { seen += s[0]; miss += s[1]; } }); return seen >= 5 ? miss / seen : null; };
+        const troubleKeys = Object.keys(sumChar)
+            .map(c => ({ c, seen: sumChar[c][0], miss: sumChar[c][1], rate: sumChar[c][1] / sumChar[c][0] }))
+            .filter(x => x.miss > 0).sort((a, b) => b.miss - a.miss).slice(0, 10)
+            .map(x => {
+                let trend = 'flat';
+                if (half >= 1) { const o = rateIn(older, x.c), nw = rateIn(newer, x.c); if (o != null && nw != null) { if (nw < o * 0.8) trend = 'better'; else if (nw > o * 1.2) trend = 'worse'; } }
+                return { ...x, trend };
+            });
+
+        const confusions = Object.keys(sumConf).map(k => ({ from: k[0], to: k[2], n: sumConf[k] })).sort((a, b) => b.n - a.n).slice(0, 8);
+
+        const bgList = Object.keys(sumBg).map(bg => ({ bg, n: sumBg[bg][0], errs: sumBg[bg][1], ms: sumBg[bg][3] ? Math.round(sumBg[bg][2] / sumBg[bg][3]) : null, latN: sumBg[bg][3], errRate: sumBg[bg][1] / sumBg[bg][0] }));
+        // Split the timed bigrams into disjoint fast/slow halves so the same one never appears in both lists.
+        const bgTimed = bgList.filter(x => x.latN >= 4 && x.ms != null).sort((a, b) => a.ms - b.ms);
+        const bgK = Math.min(6, Math.floor(bgTimed.length / 2));
+        const bigramFast = bgTimed.slice(0, bgK).filter(x => x.errRate < 0.1);
+        const bigramSlow = bgTimed.slice(bgTimed.length - bgK).reverse();
+        const bigramErr = bgList.filter(x => x.n >= 4 && x.errs > 0).sort((a, b) => b.errRate - a.errRate).slice(0, 6);
+
+        const wList = Object.keys(sumWord).map(w => ({ w, n: sumWord[w][0], errs: sumWord[w][2], ms: sumWord[w][3] ? Math.round(sumWord[w][1] / sumWord[w][3]) : null, latN: sumWord[w][3], errRate: sumWord[w][2] / sumWord[w][0] }));
+        const wordSlow = wList.filter(x => x.latN >= 3 && x.ms != null).sort((a, b) => b.ms - a.ms).slice(0, 6);
+        const wordErr = wList.filter(x => x.n >= 3 && x.errs > 0).sort((a, b) => b.errRate - a.errRate).slice(0, 6);
+
+        const avg = (key) => Math.round(recent.reduce((s, h) => s + (h[key] || 0), 0) / recent.length);
+        const wpmTrend = recent.map(h => ({ wpm: h.wpm, acc: h.acc }));
+
+        return {
+            count: recent.length, troubleKeys, confusions,
+            bigramSlow, bigramFast, bigramErr, wordSlow, wordErr,
+            avgWpm: avg('wpm'), avgAcc: avg('acc'), avgConsistency: avg('consistency'), wpmTrend
+        };
+    }
+
+    const TREND_ICON = { better: '<span style="color:var(--correct)">↘</span>', worse: '<span style="color:var(--error)">↗</span>', flat: '<span style="color:var(--secondary-text)">→</span>' };
+
+    function renderInsights() {
+        const win = config.insightsWindow === 'all' ? null : (parseInt(config.insightsWindow) || 20);
+        const ins = computeInsights(win);
+
+        // --- compact strip on the results screen ---
+        if (DOM.insightsCompact) {
+            if (!ins) { DOM.insightsCompact.innerHTML = ''; }
+            else {
+                const keys = ins.troubleKeys.slice(0, 5).map(k => `<b style="color:var(--error)">${k.c}</b>${TREND_ICON[k.trend]}`).join(' ');
+                const conf = ins.confusions[0];
+                const slow = ins.bigramSlow[0];
+                let parts = [`<span class="ins-dim">last ${ins.count}:</span>`];
+                if (keys) parts.push(`trouble ${keys}`);
+                if (conf) parts.push(`<span class="ins-dim">·</span> top mixup <b>${conf.from}</b>→<b>${conf.to}</b> ×${conf.n}`);
+                if (slow) parts.push(`<span class="ins-dim">·</span> slowest <b>${slow.bg}</b> ${slow.ms}ms`);
+                DOM.insightsCompact.innerHTML = parts.join(' ');
+            }
+        }
+
+        // --- full dashboard in settings ---
+        if (!DOM.insightsContainer) return;
+        if (!ins) { DOM.insightsContainer.style.display = 'none'; return; }
+        DOM.insightsContainer.style.display = 'block';
+
+        const chips = (arr, fmt) => arr.length ? arr.map(fmt).join('') : '<span class="ins-dim">not enough data yet</span>';
+        const keyChips = chips(ins.troubleKeys, k => `<span class="ins-chip"><b>${k.c}</b> <span class="ins-dim">${Math.round(k.rate * 100)}% miss</span> ${TREND_ICON[k.trend]}</span>`);
+        const confChips = chips(ins.confusions, c => `<span class="ins-chip">meant <b>${c.from}</b> → hit <b style="color:var(--error)">${c.to}</b> <span class="ins-dim">×${c.n}</span></span>`);
+        const slowBg = chips(ins.bigramSlow, b => `<span class="ins-chip"><b>${b.bg}</b> <span class="ins-dim">${b.ms}ms</span></span>`);
+        const fastBg = chips(ins.bigramFast, b => `<span class="ins-chip ins-good"><b>${b.bg}</b> <span class="ins-dim">${b.ms}ms</span></span>`);
+        const errBg = chips(ins.bigramErr, b => `<span class="ins-chip"><b>${b.bg}</b> <span class="ins-dim">${Math.round(b.errRate * 100)}% err</span></span>`);
+        const slowW = chips(ins.wordSlow, w => `<span class="ins-chip"><b>${w.w}</b> <span class="ins-dim">${w.ms}ms</span></span>`);
+        const errW = chips(ins.wordErr, w => `<span class="ins-chip"><b>${w.w}</b> <span class="ins-dim">${Math.round(w.errRate * 100)}% err</span></span>`);
+
+        DOM.insightsBody.innerHTML = `
+            <div class="ins-summary">
+                <span><b>${ins.avgWpm}</b> avg wpm</span>
+                <span><b>${ins.avgAcc}%</b> avg acc</span>
+                <span><b>${ins.avgConsistency}%</b> avg consistency</span>
+                <span class="ins-dim">over ${ins.count} test${ins.count > 1 ? 's' : ''}</span>
+            </div>
+            <div class="ins-block"><div class="ins-label">trouble keys <span class="ins-dim">(miss rate · trend)</span></div><div class="ins-chips">${keyChips}</div></div>
+            <div class="ins-block"><div class="ins-label">key confusions <span class="ins-dim">(what you hit instead)</span></div><div class="ins-chips">${confChips}</div></div>
+            <div class="ins-cols">
+                <div class="ins-block"><div class="ins-label">slowest bigrams</div><div class="ins-chips">${slowBg}</div></div>
+                <div class="ins-block"><div class="ins-label">error-prone bigrams</div><div class="ins-chips">${errBg}</div></div>
+            </div>
+            <div class="ins-cols">
+                <div class="ins-block"><div class="ins-label">fastest bigrams <span class="ins-dim">(your strengths)</span></div><div class="ins-chips">${fastBg}</div></div>
+                <div class="ins-block"><div class="ins-label">slowest words</div><div class="ins-chips">${slowW}</div></div>
+            </div>
+            <div class="ins-block"><div class="ins-label">error-prone words</div><div class="ins-chips">${errW}</div></div>`;
+    }
+
+    // WPM-per-day chart: per day plots the average of the top-N runs, with a band for the day's spread (±1 std).
+    function renderDailyChart() {
+        if (!DOM.dailyChart) return;
+        const topN = config.dailyTopN === 'all' ? Infinity : (parseInt(config.dailyTopN) || 5);
+        const mean = arr => arr.reduce((s, x) => s + x, 0) / arr.length;
+
+        const byDay = {};
+        loadHistory().forEach(h => {
+            if (typeof h.wpm !== 'number') return;
+            const d = new Date(h.date);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            (byDay[key] = byDay[key] || { wpms: [], date: d }).wpms.push(h.wpm);
+        });
+
+        const days = Object.keys(byDay).sort().map(k => {
+            const w = byDay[k].wpms;
+            const top = [...w].sort((a, b) => b - a).slice(0, Math.min(topN, w.length));
+            const m = mean(w);
+            const std = w.length > 1 ? Math.sqrt(mean(w.map(x => (x - m) ** 2))) : 0;
+            return { date: byDay[k].date, topAvg: Math.round(mean(top)), mean: m, std, min: Math.min(...w), max: Math.max(...w), count: w.length };
+        });
+
+        const svg = DOM.dailyChart; svg.innerHTML = '';
+        if (days.length === 0) { DOM.dailyContainer.style.display = 'none'; return; }
+        DOM.dailyContainer.style.display = 'block';
+
+        const NS = 'http://www.w3.org/2000/svg';
+        const el = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+
+        const W = 1000, H = 200, padL = 40, padR = 16, padT = 16, padB = 30;
+        const plotW = W - padL - padR, plotH = H - padT - padB;
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+        let lo = Math.min(...days.map(d => Math.min(d.min, d.mean - d.std)));
+        let hi = Math.max(...days.map(d => Math.max(d.max, d.mean + d.std)));
+        const span = Math.max(hi - lo, 10), padY = span * 0.12;
+        lo = Math.max(0, lo - padY); hi = hi + padY;
+
+        const n = days.length;
+        const xAt = i => n === 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW;
+        const yAt = v => padT + (1 - (v - lo) / (hi - lo)) * plotH;
+
+        // gridlines + y labels
+        [0, 0.5, 1].forEach(f => {
+            const y = padT + (1 - f) * plotH;
+            svg.appendChild(el('line', { x1: padL, y1: y, x2: W - padR, y2: y, class: 'sparkline-grid' }));
+            svg.appendChild(el('text', { x: padL - 6, y: y + 4, class: 'sparkline-axis', 'text-anchor': 'end' }, Math.round(lo + (hi - lo) * f)));
+        });
+
+        const bw = Math.max(6, Math.min(26, plotW / n * 0.45));
+        days.forEach((d, i) => {
+            const x = xAt(i);
+            // variance band (±1 std)
+            if (d.std > 0) {
+                const yTop = yAt(d.mean + d.std), yBot = yAt(d.mean - d.std);
+                svg.appendChild(el('rect', { x: x - bw / 2, y: yTop, width: bw, height: Math.max(1, yBot - yTop), rx: 3, class: 'daily-band' }));
+            }
+            // min–max whisker with caps
+            svg.appendChild(el('line', { x1: x, y1: yAt(d.max), x2: x, y2: yAt(d.min), class: 'daily-whisker' }));
+            svg.appendChild(el('line', { x1: x - 4, y1: yAt(d.max), x2: x + 4, y2: yAt(d.max), class: 'daily-cap' }));
+            svg.appendChild(el('line', { x1: x - 4, y1: yAt(d.min), x2: x + 4, y2: yAt(d.min), class: 'daily-cap' }));
+        });
+
+        // line connecting the top-N averages
+        if (n > 1) svg.appendChild(el('path', { d: days.map((d, i) => `${i === 0 ? 'M' : 'L'}${xAt(i)},${yAt(d.topAvg)}`).join(' '), class: 'daily-line' }));
+
+        // x-axis date labels (thinned if crowded)
+        const step = Math.ceil(n / 9);
+        days.forEach((d, i) => {
+            if (i % step !== 0 && i !== n - 1) return;
+            svg.appendChild(el('text', { x: xAt(i), y: H - 8, class: 'sparkline-axis', 'text-anchor': 'middle' }, d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })));
+        });
+
+        // top-N average dots + hover tooltips
+        days.forEach((d, i) => {
+            svg.appendChild(el('circle', { cx: xAt(i), cy: yAt(d.topAvg), r: 4, class: 'daily-dot' }));
+            const hit = el('circle', { cx: xAt(i), cy: yAt(d.topAvg), r: 12, class: 'daily-hit' });
+            const label = d.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            hit.appendChild(el('title', {}, `${label}  ·  ${d.topAvg} wpm (top ${Math.min(topN, d.count)})  ·  spread ±${Math.round(d.std)}  ·  ${d.min}–${d.max}  ·  ${d.count} run${d.count > 1 ? 's' : ''}`));
+            svg.appendChild(hit);
+        });
+
+        DOM.dailyLegend.innerHTML = `<span><span class="swatch" style="background:var(--text-color)"></span>top-${config.dailyTopN === 'all' ? 'all' : topN} avg</span>`
+            + `<span><span class="swatch daily-band" style="opacity:1;background:var(--text-color);opacity:0.13"></span>±1 std (daily spread)</span>`
+            + `<span>│ min–max range</span>`;
     }
 
     function renderBestScores() {
@@ -1556,35 +1911,114 @@ function endTest(earlyExit = false) {
         }).join('');
     }
 
-    function renderSparkline() {
-        const svg = DOM.wpmSparkline; svg.innerHTML = ''; const pts = state.wpmSnapshots;
-        if (pts.length < 2) { svg.style.display = 'none'; return; }
-        svg.style.display = 'block'; const w = 1000, h = 150, pad = 10, maxWpm = Math.max(...pts.map(p => p.wpm), 1);
-        
-        svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    // Record each scored keystroke (and errors) on a millisecond timeline so the
+    // result chart can reconstruct *when* you were fast/slow and *where* errors hit.
+    function recordKey(expected, typed, isCorrect) {
+        if (state.startTime == null) return;
+        const t = Date.now() - state.startTime;
+        // p = sample index this keystroke targeted (state.typed hasn't advanced yet)
+        state.keyTimeline.push({ t, e: expected, k: typed, c: isCorrect, p: state.typed.length });
+        if (!isCorrect) state.errorTimeline.push(t);
+    }
 
-        const coords = pts.map((p, i) => ({ x: pad + (i / (pts.length - 1)) * (w - pad * 2), y: pad + (1 - p.wpm / maxWpm) * (h - pad * 2 - 20) }));
-        
-        const areaPath = `M${coords[0].x},${coords[0].y} ` + coords.map(c => `L${c.x},${c.y}`).join(' ') + ` L${coords[coords.length-1].x},${h-20} L${coords[0].x},${h-20} Z`;
-        const area = document.createElementNS('http://www.w3.org/2000/svg', 'path'); area.setAttribute('d', areaPath); area.setAttribute('class', 'sparkline-area'); svg.appendChild(area);
-        
-        const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x},${c.y}`).join(' ');
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'path'); line.setAttribute('d', linePath); line.setAttribute('class', 'sparkline-line'); svg.appendChild(line);
-        
-        [0, pts.length - 1].forEach(i => {
-            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); dot.setAttribute('cx', coords[i].x); dot.setAttribute('cy', coords[i].y); dot.setAttribute('r', 6); dot.setAttribute('class', 'sparkline-dot'); svg.appendChild(dot);
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text'); label.setAttribute('x', coords[i].x); label.setAttribute('y', h - 4); label.setAttribute('class', 'sparkline-label'); label.setAttribute('text-anchor', i === 0 ? 'start' : 'end'); label.textContent = pts[i].wpm + ' wpm'; svg.appendChild(label);
+    // Bucket the timeline into per-second values. raw = all keystrokes that second
+    // (jagged, shows bursts/stalls); wpm = correct keystrokes, lightly smoothed.
+    function buildPerSecondStats(timeSec) {
+        const secs = Math.max(1, Math.ceil(timeSec));
+        const rawCount = new Array(secs).fill(0), corCount = new Array(secs).fill(0), errs = new Array(secs).fill(0);
+        state.keyTimeline.forEach(k => { const s = Math.min(secs - 1, Math.floor(k.t / 1000)); rawCount[s]++; if (k.c) corCount[s]++; });
+        state.errorTimeline.forEach(t => { errs[Math.min(secs - 1, Math.floor(t / 1000))]++; });
+
+        // chars/sec * 60 / 5 chars-per-word = chars/sec * 12
+        const rawWpm = rawCount.map(c => c * 12);
+        const corWpm = corCount.map(c => c * 12);
+        const wpm = corWpm.map((_, i) => {
+            let sum = 0, cnt = 0;
+            for (let j = i - 2; j <= i + 2; j++) if (j >= 0 && j < secs) { sum += corWpm[j]; cnt++; }
+            return Math.round(sum / cnt);
         });
+
+        // Monkeytype-style consistency: kogasa() of the coefficient of variation of raw wpm.
+        const m = mean(rawWpm), cov = m > 0 ? stdDev(rawWpm) / m : 0;
+        const consistency = rawWpm.length > 1 ? Math.max(0, Math.round(kogasa(cov))) : 100;
+        return { rawWpm, wpm, errs, consistency };
     }
 
-    function startSnapshots() {
-        state.wpmSnapshots = []; snapshotInterval = setInterval(() => {
-            if (!state.testStarted || state.testCompleted) return; const elapsed = (Date.now() - state.startTime) / 1000;
-            let correct = 0; for (let i = 0; i < state.typed.length; i++) { if (state.typed[i] === state.sample[i]) correct++; }
-            state.wpmSnapshots.push({ time: Math.round(elapsed), wpm: Math.round((correct / 5) / (elapsed / 60)) || 0 });
-        }, 2000);
+    function mean(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
+    function stdDev(arr) { const m = mean(arr); return Math.sqrt(mean(arr.map(v => (v - m) ** 2))); }
+    function kogasa(cov) { return 100 * (1 - Math.tanh(cov + cov ** 3 / 3 + cov ** 5 / 5)); }
+
+    function renderSparkline() {
+        const svg = DOM.wpmSparkline; svg.innerHTML = '';
+        const data = state.chartData;
+        if (!data || data.wpm.length < 1 || data.wpm.every(v => v === 0)) { svg.style.display = 'none'; return; }
+        svg.style.display = 'block';
+
+        const NS = 'http://www.w3.org/2000/svg';
+        const el = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+
+        const W = 1000, H = 170, padL = 38, padR = 30, padT = 22, padB = 20;
+        const plotW = W - padL - padR, plotH = H - padT - padB;
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+        const raw = data.rawWpm, wpm = data.wpm, errs = data.errs, n = wpm.length;
+        const maxWpm = Math.max(...raw, ...wpm, 1), maxErr = Math.max(...errs, 1);
+        const xAt = i => n === 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW;
+        const yWpm = v => padT + (1 - v / maxWpm) * plotH;
+        const yErr = v => padT + (1 - v / maxErr) * plotH;
+
+        // gridlines + left (wpm) axis labels
+        [0, 0.5, 1].forEach(f => {
+            const y = padT + (1 - f) * plotH;
+            svg.appendChild(el('line', { x1: padL, y1: y, x2: W - padR, y2: y, class: 'sparkline-grid' }));
+            svg.appendChild(el('text', { x: padL - 6, y: y + 4, class: 'sparkline-axis', 'text-anchor': 'end' }, Math.round(maxWpm * f)));
+        });
+
+        if (n > 1) {
+            const c = wpm.map((v, i) => ({ x: xAt(i), y: yWpm(v) }));
+            const areaPath = `M${c[0].x},${c[0].y} ` + c.map(p => `L${p.x},${p.y}`).join(' ') + ` L${c[n-1].x},${padT+plotH} L${c[0].x},${padT+plotH} Z`;
+            svg.appendChild(el('path', { d: areaPath, class: 'sparkline-area' }));
+            svg.appendChild(el('path', { d: raw.map((v, i) => `${i===0?'M':'L'}${xAt(i)},${yWpm(v)}`).join(' '), class: 'sparkline-raw' }));
+            svg.appendChild(el('path', { d: c.map((p, i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' '), class: 'sparkline-line' }));
+        }
+
+        // error crosses on a second (right) axis
+        errs.forEach((cnt, i) => { if (cnt > 0) svg.appendChild(el('text', { x: xAt(i), y: yErr(cnt), class: 'sparkline-error' }, '✕')); });
+
+        // legend
+        svg.appendChild(el('text', { x: padL, y: 12, class: 'sparkline-legend', fill: 'var(--text-color)' }, 'wpm'));
+        svg.appendChild(el('text', { x: padL + 46, y: 12, class: 'sparkline-legend', fill: 'var(--secondary-text)' }, 'raw'));
+        svg.appendChild(el('text', { x: padL + 90, y: 12, class: 'sparkline-legend', fill: 'var(--error)' }, '✕ errors'));
+
+        // hover: vertical cursor line + a styled tooltip that snaps to the nearest second
+        const cursor = el('line', { x1: padL, y1: padT, x2: padL, y2: padT + plotH, class: 'sparkline-cursor' });
+        svg.appendChild(cursor);
+        const marker = el('circle', { cx: padL, cy: padT, r: 4, class: 'sparkline-dot', opacity: 0 });
+        svg.appendChild(marker);
+        svg.appendChild(el('rect', { x: padL, y: padT, width: plotW, height: plotH, class: 'sparkline-overlay' }));
+
+        const tip = DOM.sparkTooltip;
+        svg.onmousemove = (e) => {
+            const r = svg.getBoundingClientRect();
+            const vbX = (e.clientX - r.left) / r.width * W;
+            let i = n > 1 ? Math.round((vbX - padL) / plotW * (n - 1)) : 0;
+            i = Math.max(0, Math.min(n - 1, i));
+            const cx = xAt(i), cy = yWpm(wpm[i]);
+            cursor.setAttribute('x1', cx); cursor.setAttribute('x2', cx); cursor.style.opacity = 0.4;
+            marker.setAttribute('cx', cx); marker.setAttribute('cy', cy); marker.setAttribute('opacity', 1);
+            tip.innerHTML = `<span class="tt-wpm">${wpm[i]} wpm</span> · ${raw[i]} raw`
+                + (errs[i] ? ` · <span class="tt-err">${errs[i]} error${errs[i] > 1 ? 's' : ''}</span>` : '')
+                + `<br><span class="tt-sec">${i + 1}s</span>`;
+            const cRect = DOM.chartContainer.getBoundingClientRect();
+            tip.style.left = (r.left - cRect.left + cx / W * r.width) + 'px';
+            tip.style.top = (r.top - cRect.top + cy / H * r.height) + 'px';
+            tip.style.opacity = 1;
+        };
+        svg.onmouseleave = () => { tip.style.opacity = 0; cursor.style.opacity = 0; marker.setAttribute('opacity', 0); };
     }
-    function stopSnapshots() { clearInterval(snapshotInterval); }
+
+    function startSnapshots() { state.keyTimeline = []; state.errorTimeline = []; }
+    function stopSnapshots() { if (snapshotInterval) { clearInterval(snapshotInterval); snapshotInterval = null; } }
     function startTimer() {
         const secs = parseInt(config.timed); if (secs <= 0) return;
         state.timerSeconds = state.timerRemaining = secs; DOM.timerDisplay.style.display = 'block'; DOM.timerDisplay.textContent = secs + 's';
@@ -1758,6 +2192,7 @@ if (state.testCompleted) {
             // count it, and keep blocking until Backspace clears it
             if (config.stopOnError === 'char' && state.errorChar !== null) {
                 playClickSound(); playErrorSound();
+                recordKey(state.sample[state.typed.length], mappedChar, false);
                 state.mistakes++; state.currentStreak = 0; DOM.streakCount.textContent = '0';
                 const exp = state.sample[state.typed.length]?.toLowerCase();
                 if (exp && exp.match(/[a-z]/)) state.mistakeChars[exp] = (state.mistakeChars[exp] || 0) + 1;
@@ -1768,6 +2203,7 @@ if (state.testCompleted) {
             playClickSound();                            // mechanical click on every keypress
             const targetChar = state.sample[state.typed.length];
             const isCorrect = (config.mode === 'custom') ? (mappedChar === targetChar) : (mappedChar.toLowerCase() === targetChar.toLowerCase());
+            recordKey(targetChar, mappedChar, isCorrect);
 
             if (pos && config.keypress && config.showKb && !DOM.typingWrapper.classList.contains('stats-active')) {
                 const rect = document.querySelector(`#key-${pos} rect`);
@@ -1868,6 +2304,8 @@ if (state.testCompleted) {
         DOM.timedSelect.onchange = (e) => { setPref('timed', e.target.value); if (parseInt(e.target.value) > 0) generateWords(); }; 
         
         DOM.soundProfileSelect.onchange = (e) => { setPref('soundProfile', e.target.value); };
+        DOM.insightsWindowSelect.onchange = (e) => { setPref('insightsWindow', e.target.value); renderInsights(); };
+        DOM.dailyTopSelect.onchange = (e) => { setPref('dailyTopN', e.target.value); renderDailyChart(); };
         if (config.soundProfile && config.soundProfile !== 'synth') loadSoundProfile(config.soundProfile);  // preload saved choice
 
         DOM.wordsBtn.onclick = generateWords;
